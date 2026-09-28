@@ -86,6 +86,7 @@ export function computeQuote(
   durationId: RentalDuration,
 ): Quote {
   const duration = getDuration(durationId);
+  const chargeableMonths = getChargeableMonths(duration);
   const desk = deskById(selection.deskId);
   const chair = chairById(selection.chairId);
   const rawItems = [
@@ -122,7 +123,7 @@ export function computeQuote(
     (sum, item) => sum + item.monthlyPrice * item.quantity,
     0,
   );
-  const subtotal = Math.round(monthlySubtotal * duration.months * 100) / 100;
+  const subtotal = Math.round(monthlySubtotal * chargeableMonths * 100) / 100;
   const discount = Math.round(subtotal * duration.discount * 100) / 100;
   const deliveryFee = durationId === "week" || durationId === "month" ? 18 : 0;
   const total = Math.round((subtotal - discount + deliveryFee) * 100) / 100;
@@ -132,7 +133,7 @@ export function computeQuote(
     lineItems: rawItems.map((item) => ({
       ...item,
       total:
-        Math.round(item.monthlyPrice * item.quantity * duration.months * (1 - duration.discount) * 100) /
+        Math.round(item.monthlyPrice * item.quantity * chargeableMonths * (1 - duration.discount) * 100) /
         100,
     })),
     itemCount: rawItems.reduce((sum, item) => sum + item.quantity, 0),
@@ -142,5 +143,9 @@ export function computeQuote(
     deliveryFee,
     total,
   };
+}
+
+function getChargeableMonths(duration: DurationOption) {
+  return duration.id === "week" ? duration.multiplier : duration.months;
 }
 

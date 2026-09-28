@@ -10,12 +10,19 @@ Nomad / Studio is a workspace-rental configurator. The main journey is:
 
 The current checkout is a client-side preview; it does not collect payment or call a backend.
 
+## Agent skills
+
+Load the relevant skill before starting work in its area:
+
+- `.agents/skills/frontend-design/SKILL.md` — Read when building new UI or reshaping existing UI. Use it for distinctive visual direction, typography, layout, motion, interface copy, accessibility, and reduced-motion decisions.
+- `.agents/skills/nextjs-app-architecture/SKILL.md` — Read before scaffolding, adding features, auditing, or refactoring this Next.js App Router app. Use it for React Server Component composition, feature placement, server/client boundaries, Suspense and skeletons, route props, actions, and caching.
+
 ## Source of truth
 
 - `lib/catalog.ts` owns product types, IDs, prices, colors, and accessory limits.
 - `lib/pricing.ts` owns rental durations and quote calculations.
 - `lib/workspace-store.tsx` owns `WorkspaceState`, reducer actions, context helpers, and local-storage persistence. Use `useWorkspace()` instead of creating parallel selection state or price math.
-- `app/page.tsx` owns the builder flow; `app/checkout/page.tsx` owns duration selection, delivery validation, and confirmation.
+- `features/workspace/components/workspace-builder.tsx` owns the builder flow; `features/checkout/components/checkout-experience.tsx` owns duration selection, delivery validation, and confirmation. The route files compose those feature components.
 - `components/scene/Workspace3D.tsx` maps workspace state to the React Three Fiber scene. `WorkspaceScene.tsx` is the client-only dynamic boundary.
 - `app/globals.css` owns design tokens, responsive layout, component styling, and reduced-motion behavior.
 

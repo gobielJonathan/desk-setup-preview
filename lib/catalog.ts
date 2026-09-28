@@ -29,6 +29,17 @@ export type Chair = {
 };
 
 export type AccessoryZone = "desk" | "floor" | "wall";
+export type AccessoryIcon =
+  | "monitor"
+  | "wide-monitor"
+  | "lamp"
+  | "sprout"
+  | "keyboard"
+  | "stand"
+  | "monstera"
+  | "rug"
+  | "shelf"
+  | "headphones";
 
 export type Accessory = {
   id: string;
@@ -39,14 +50,14 @@ export type Accessory = {
   blurb: string;
   monthlyPrice: number;
   maxQty: number;
-  icon: string;
+  icon: AccessoryIcon;
   colors: {
     primary: string;
     secondary: string;
   };
 };
 
-export const desks: Desk[] = [
+export const desks = [
   {
     id: "sunrise-standing",
     kind: "desk",
@@ -74,9 +85,9 @@ export const desks: Desk[] = [
     monthlyPrice: 62,
     colors: { top: "#8E583A", edge: "#633A2D", leg: "#493B3A" },
   },
-];
+] as const satisfies readonly Desk[];
 
-export const chairs: Chair[] = [
+export const chairs = [
   {
     id: "cloud-mesh",
     kind: "chair",
@@ -104,9 +115,9 @@ export const chairs: Chair[] = [
     monthlyPrice: 28,
     colors: { seat: "#E5B95C", back: "#E5B95C", leg: "#65726C" },
   },
-];
+] as const satisfies readonly Chair[];
 
-export const accessories: Accessory[] = [
+export const accessories = [
   {
     id: "halo-monitor",
     kind: "accessory",
@@ -227,7 +238,11 @@ export const accessories: Accessory[] = [
     icon: "headphones",
     colors: { primary: "#A96F5C", secondary: "#E9C0A5" },
   },
-];
+] as const satisfies readonly Accessory[];
+
+export type DeskId = (typeof desks)[number]["id"];
+export type ChairId = (typeof chairs)[number]["id"];
+export type AccessoryId = (typeof accessories)[number]["id"];
 
 export const allItems = [...desks, ...chairs, ...accessories];
 

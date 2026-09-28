@@ -447,6 +447,42 @@ a {
   font-size: 11px;
 }
 
+.workspace-scene--error {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  color: rgba(255, 252, 243, .86);
+  background: #354343;
+  text-align: center;
+}
+
+.workspace-scene--error strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.workspace-scene--error span {
+  max-width: 240px;
+  color: rgba(255, 252, 243, .68);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.builder-page--loading,
+.checkout-page--loading {
+  min-height: calc(100vh - 78px);
+}
+
+.builder-hydration-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .scene-loading-orb {
   width: 26px;
   height: 26px;
@@ -1355,53 +1391,6 @@ button.summary-chip:hover {
   background: #fff;
 }
 
-.cafe-window {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: cafe-window-drift 18s ease-in-out infinite;
-}
-
-.cafe-pendants {
-  transform-box: fill-box;
-  transform-origin: center top;
-  animation: cafe-pendant-glow 4.5s ease-in-out infinite;
-}
-
-.cafe-backdrop--night .cafe-pendants {
-  animation-duration: 3.2s;
-}
-
-@keyframes cafe-window-drift {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(2px); }
-}
-
-@keyframes cafe-pendant-glow {
-  0%, 100% { opacity: .88; }
-  50% { opacity: 1; }
-}
-
-.scene-pop {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: scene-pop .6s cubic-bezier(.22, 1.2, .36, 1) both;
-}
-
-.scene-fade {
-  animation: scene-fade .38s ease both;
-}
-
-@keyframes scene-pop {
-  0% { opacity: 0; transform: translateY(10px) scale(.93); }
-  70% { opacity: 1; transform: translateY(-2px) scale(1.02); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes scene-fade {
-  from { opacity: .1; }
-  to { opacity: 1; }
-}
-
 /* Checkout */
 .checkout-page {
   min-height: calc(100vh - 76px);
@@ -1863,6 +1852,11 @@ button.summary-chip:hover {
   font-size: 11px;
 }
 
+.confirmation-card h1:focus {
+  outline: 2px solid var(--coral);
+  outline-offset: 7px;
+}
+
 @media (max-width: 1050px) {
   .builder-workbench,
   .checkout-layout {
@@ -1879,6 +1873,14 @@ button.summary-chip:hover {
 
   .shell {
     width: min(100% - 42px, 1320px);
+  }
+}
+
+@media (min-width: 801px) and (max-width: 1050px) {
+  .builder-bottom.shell {
+    width: min(430px, max(370px, calc(47.37vw - 38px)));
+    gap: 20px;
+    padding-inline: 20px;
   }
 }
 

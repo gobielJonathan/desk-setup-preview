@@ -3,8 +3,9 @@
 import { Canvas } from "@react-three/fiber";
 import { Float, OrbitControls, RoundedBox, ContactShadows } from "@react-three/drei";
 import { useMemo } from "react";
-import { accessoryById, chairById, deskById, type Accessory, type Chair, type Desk, type Vibe } from "../../lib/catalog";
-import { useWorkspace } from "../../lib/workspace-store";
+import { accessoryById, chairById, deskById, type Accessory, type Chair, type Desk, type Vibe } from "@/lib/catalog";
+import { useWorkspace } from "@/lib/workspace-store";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const sceneColors: Record<
   Vibe,
@@ -64,6 +65,7 @@ export default function Workspace3D({
   className?: string;
 }) {
   const { state } = useWorkspace();
+  const reducedMotion = usePrefersReducedMotion();
   const desk = deskById(state.deskId);
   const chair = chairById(state.chairId);
   const colors = sceneColors[state.vibe];
@@ -96,16 +98,20 @@ export default function Workspace3D({
   return (
     <div className={`${height} ${className}`}>
       <Canvas
-        shadows
-        dpr={[1, 1.7]}
+        shadows={!reducedMotion}
+        dpr={[1, reducedMotion ? 1.2 : 1.7]}
+        frameloop={reducedMotion ? "demand" : "always"}
         camera={{ position: [6.4, 4.8, 7.2], fov: 36 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{
+          antialias: !reducedMotion,
+          powerPreference: reducedMotion ? "low-power" : "high-performance",
+        }}
       >
         <color attach="background" args={[colors.background]} />
         <fog attach="fog" args={[colors.background, 8, 17]} />
         <ambientLight intensity={0.85} color={colors.light} />
         <directionalLight
-          castShadow
+          castShadow={!reducedMotion}
           position={[-4, 8, 5]}
           intensity={2.4}
           color={colors.light}
@@ -118,8 +124,7 @@ export default function Workspace3D({
         <pointLight position={[0, 4.7, 1]} intensity={1.2} distance={7} color={colors.light} />
         <pointLight position={[4.5, 3.8, -1]} intensity={0.7} distance={5} color="#E9B8A6" />
 
-        <CafeRoom vibe={state.vibe} colors={colors} />
-        <Rug />
+        <CafeRoom vibe={state.vibe} colors={colors} reducedMotion={reducedMotion} />
         <PlacementZones monitorSlots={monitorSlots} />
         <ChairModel chair={chair} />
         <DeskModel desk={desk} />
@@ -168,9 +173,11 @@ export default function Workspace3D({
 function CafeRoom({
   vibe,
   colors,
+  reducedMotion,
 }: {
   vibe: Vibe;
   colors: (typeof sceneColors)[Vibe];
+  reducedMotion: boolean;
 }) {
   return (
     <group>
@@ -187,8 +194,8 @@ function CafeRoom({
       <CafeCounter colors={colors} />
       <CafeMenu colors={colors} />
       <CafeShelf colors={colors} />
-      <CafePendant position={[-0.1, 5.75, -1.3]} colors={colors} scale={0.9} />
-      <CafePendant position={[3.8, 5.2, -1.55]} colors={colors} scale={1.12} />
+      <CafePendant position={[-0.1, 5.75, -1.3]} colors={colors} scale={0.9} reducedMotion={reducedMotion} />
+      <CafePendant position={[3.8, 5.2, -1.55]} colors={colors} scale={1.12} reducedMotion={reducedMotion} />
       <CafeNeighbor colors={colors} />
     </group>
   );
@@ -272,14 +279,15 @@ function CafePendant({
   position,
   colors,
   scale,
+  reducedMotion,
 }: {
   position: Point;
   colors: (typeof sceneColors)[Vibe];
   scale: number;
+  reducedMotion: boolean;
 }) {
-  return (
-    <Float speed={1.3} rotationIntensity={0.015} floatIntensity={0.025}>
-      <group position={position} scale={scale}>
+  const pendant = (
+    <group position={position} scale={scale}>
         <mesh position={[0, 0.75, 0]}>
           <cylinderGeometry args={[0.018, 0.018, 1.5, 8]} />
           <meshStandardMaterial color="#334044" roughness={0.8} />
@@ -293,7 +301,12 @@ function CafePendant({
           <meshStandardMaterial color={colors.light} emissive={colors.light} emissiveIntensity={0.55} />
         </mesh>
         <pointLight position={[0, -0.2, 0.2]} intensity={0.6} distance={3} color={colors.light} />
-      </group>
+    </group>
+  );
+
+  return reducedMotion ? pendant : (
+    <Float speed={1.3} rotationIntensity={0.015} floatIntensity={0.025}>
+      {pendant}
     </Float>
   );
 }
@@ -398,15 +411,6 @@ function CafeNeighbor({ colors }: { colors: (typeof sceneColors)[Vibe] }) {
         ))}
       </group>
     </group>
-  );
-}
-
-function Rug() {
-  return (
-    <mesh position={[0, 0.035, 1.15]} receiveShadow>
-      <cylinderGeometry args={[2.5, 2.5, 0.045, 64]} />
-      <meshStandardMaterial color="#D9C19C" roughness={1} />
-    </mesh>
   );
 }
 
@@ -643,7 +647,40 @@ function AccessoryModel({
     );
   }
 
-  if (accessory.icon === "rug") return null;
+  if (accessory.icon === "rug") {
+    return (
+      <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <cylinderGeometry args={[2.5, 2.5, 0.045, 64]} />
+        <meshStandardMaterial color={secondary} roughness={1} />
+      </mesh>
+    );
+  }
+
+  if (accessory.icon === "shelf") {
+    return (
+      <group position={position}>
+        <RoundedBox args={[2.45, 0.12, 0.42]} radius={0.04} smoothness={3} castShadow>
+          <meshStandardMaterial color={color} roughness={0.65} />
+        </RoundedBox>
+        <mesh position={[-1.02, -0.36, 0]}>
+          <boxGeometry args={[0.1, 0.72, 0.14]} />
+          <meshStandardMaterial color={color} roughness={0.65} />
+        </mesh>
+        <mesh position={[1.02, -0.36, 0]}>
+          <boxGeometry args={[0.1, 0.72, 0.14]} />
+          <meshStandardMaterial color={color} roughness={0.65} />
+        </mesh>
+        <mesh position={[-0.68, 0.28, 0]}>
+          <boxGeometry args={[0.35, 0.44, 0.28]} />
+          <meshStandardMaterial color={secondary} roughness={0.45} />
+        </mesh>
+        <mesh position={[0.58, 0.27, 0]}>
+          <sphereGeometry args={[0.2, 16, 10]} />
+          <meshStandardMaterial color="#C5A05C" roughness={0.55} />
+        </mesh>
+      </group>
+    );
+  }
 
   return null;
 }

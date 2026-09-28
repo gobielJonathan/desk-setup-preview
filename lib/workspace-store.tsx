@@ -4,10 +4,13 @@ import {
   accessories,
   chairs,
   desks,
+  type AccessoryId,
+  type ChairId,
+  type DeskId,
   type Vibe,
 } from "./catalog";
 import {
-  getDuration,
+  durationOptions,
   type RentalDuration,
 } from "./pricing";
 import {
@@ -18,24 +21,23 @@ import {
   useMemo,
   useReducer,
   useState,
-  type Dispatch,
   type ReactNode,
 } from "react";
 
 export type WorkspaceState = {
-  deskId: string;
-  chairId: string;
-  accessories: Record<string, number>;
+  deskId: DeskId;
+  chairId: ChairId;
+  accessories: Partial<Record<AccessoryId, number>>;
   vibe: Vibe;
   duration: RentalDuration;
 };
 
-type WorkspaceAction =
+export type WorkspaceAction =
   | { type: "hydrate"; state: WorkspaceState }
-  | { type: "selectDesk"; id: string }
-  | { type: "selectChair"; id: string }
-  | { type: "addAccessory"; id: string }
-  | { type: "removeAccessory"; id: string }
+  | { type: "selectDesk"; id: DeskId }
+  | { type: "selectChair"; id: ChairId }
+  | { type: "addAccessory"; id: AccessoryId }
+  | { type: "removeAccessory"; id: AccessoryId }
   | { type: "setVibe"; vibe: Vibe }
   | { type: "setDuration"; duration: RentalDuration }
   | { type: "randomize" }
@@ -56,11 +58,14 @@ export const defaultWorkspace: WorkspaceState = {
   duration: "month",
 };
 
-function pick<T>(items: T[]) {
+function pick<T>(items: readonly T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState {
+export function workspaceReducer(
+  state: WorkspaceState,
+  action: WorkspaceAction,
+): WorkspaceState {
   switch (action.type) {
     case "hydrate":
       return action.state;
@@ -94,7 +99,7 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
     case "setDuration":
       return { ...state, duration: action.duration };
     case "randomize": {
-      const randomAccessories = accessories.reduce<Record<string, number>>(
+      const randomAccessories = accessories.reduce<Partial<Record<AccessoryId, number>>>(
         (result, accessory) => {
           if (Math.random() > 0.52) {
             result[accessory.id] = 1;
@@ -108,7 +113,7 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
         deskId: pick(desks).id,
         chairId: pick(chairs).id,
         accessories: randomAccessories,
-        vibe: pick(["morning", "sunset", "night"] as Vibe[]),
+        vibe: pick(["morning", "sunset", "night"] as const),
       };
     }
     case "reset":
@@ -118,13 +123,61 @@ function reducer(state: WorkspaceState, action: WorkspaceAction): WorkspaceState
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isDeskId(value: unknown): value is DeskId {
+  return typeof value === "string" && desks.some((desk) => desk.id === value);
+}
+
+function isChairId(value: unknown): value is ChairId {
+  return typeof value === "string" && chairs.some((chair) => chair.id === value);
+}
+
+function isAccessoryId(value: string): value is AccessoryId {
+  return accessories.some((accessory) => accessory.id === value);
+}
+
+function isVibe(value: unknown): value is Vibe {
+  return value === "morning" || value === "sunset" || value === "night";
+}
+
+function isRentalDuration(value: unknown): value is RentalDuration {
+  return typeof value === "string" && durationOptions.some((option) => option.id === value);
+}
+
+export function normalizeWorkspace(value: unknown): WorkspaceState {
+  const parsed = isRecord(value) ? value : {};
+  const parsedAccessories = isRecord(parsed.accessories)
+    ? parsed.accessories
+    : defaultWorkspace.accessories;
+  const validAccessories = Object.entries(parsedAccessories).reduce<
+    Partial<Record<AccessoryId, number>>
+  >((result, [id, quantity]) => {
+    if (!isAccessoryId(id)) return result;
+    const accessory = accessories.find((item) => item.id === id);
+    if (accessory && typeof quantity === "number" && Number.isInteger(quantity) && quantity > 0) {
+      result[id] = Math.min(quantity, accessory.maxQty);
+    }
+    return result;
+  }, {});
+
+  return {
+    deskId: isDeskId(parsed.deskId) ? parsed.deskId : defaultWorkspace.deskId,
+    chairId: isChairId(parsed.chairId) ? parsed.chairId : defaultWorkspace.chairId,
+    accessories: validAccessories,
+    vibe: isVibe(parsed.vibe) ? parsed.vibe : defaultWorkspace.vibe,
+    duration: isRentalDuration(parsed.duration) ? parsed.duration : defaultWorkspace.duration,
+  };
+}
+
 type WorkspaceContextValue = {
   state: WorkspaceState;
-  dispatch: Dispatch<WorkspaceAction>;
-  selectDesk: (id: string) => void;
-  selectChair: (id: string) => void;
-  addAccessory: (id: string) => void;
-  removeAccessory: (id: string) => void;
+  selectDesk: (id: DeskId) => void;
+  selectChair: (id: ChairId) => void;
+  addAccessory: (id: AccessoryId) => void;
+  removeAccessory: (id: AccessoryId) => void;
   setVibe: (vibe: Vibe) => void;
   setDuration: (duration: RentalDuration) => void;
   randomize: () => void;
@@ -137,47 +190,14 @@ type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, defaultWorkspace);
+  const [state, dispatch] = useReducer(workspaceReducer, defaultWorkspace);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as Partial<WorkspaceState>;
-        if (parsed.deskId && parsed.chairId && parsed.accessories) {
-          const validAccessories = Object.entries(parsed.accessories).reduce<
-            Record<string, number>
-          >((result, [id, quantity]) => {
-            const accessory = accessories.find((item) => item.id === id);
-            if (accessory && typeof quantity === "number" && quantity > 0) {
-              result[id] = Math.min(quantity, accessory.maxQty);
-            }
-            return result;
-          }, {});
-          dispatch({
-            type: "hydrate",
-            state: {
-              deskId: desks.some((item) => item.id === parsed.deskId)
-                ? parsed.deskId
-                : defaultWorkspace.deskId,
-              chairId: chairs.some((item) => item.id === parsed.chairId)
-                ? parsed.chairId
-                : defaultWorkspace.chairId,
-              accessories: validAccessories,
-              vibe:
-                parsed.vibe === "morning" ||
-                parsed.vibe === "sunset" ||
-                parsed.vibe === "night"
-                  ? parsed.vibe
-                  : defaultWorkspace.vibe,
-              duration:
-                parsed.duration && getDuration(parsed.duration)
-                  ? parsed.duration
-                  : defaultWorkspace.duration,
-            },
-          });
-        }
+        dispatch({ type: "hydrate", state: normalizeWorkspace(JSON.parse(saved)) });
       }
     } catch {
       // An unavailable or malformed local preference should not block the builder.
@@ -188,21 +208,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (hydrated) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // An unavailable storage backend should not block the builder.
+      }
     }
   }, [hydrated, state]);
 
-  const selectDesk = useCallback((id: string) => dispatch({ type: "selectDesk", id }), []);
+  const selectDesk = useCallback(
+    (id: DeskId) => dispatch({ type: "selectDesk", id }),
+    [],
+  );
   const selectChair = useCallback(
-    (id: string) => dispatch({ type: "selectChair", id }),
+    (id: ChairId) => dispatch({ type: "selectChair", id }),
     [],
   );
   const addAccessory = useCallback(
-    (id: string) => dispatch({ type: "addAccessory", id }),
+    (id: AccessoryId) => dispatch({ type: "addAccessory", id }),
     [],
   );
   const removeAccessory = useCallback(
-    (id: string) => dispatch({ type: "removeAccessory", id }),
+    (id: AccessoryId) => dispatch({ type: "removeAccessory", id }),
     [],
   );
   const setVibe = useCallback(
@@ -218,12 +245,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const selectedAccessoryCount = Object.values(state.accessories).reduce(
-      (sum, quantity) => sum + quantity,
+      (sum, quantity) => sum + (quantity ?? 0),
       0,
     );
     return {
       state,
-      dispatch,
       selectDesk,
       selectChair,
       addAccessory,
